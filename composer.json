@@ -1,0 +1,34 @@
+{
+    "name": "s-mcdonald/bag",
+    "description": "A Laravel Cart system.",
+    "keywords": ["Sam", "McDonald", "Cart", "e-commerce", "php-cart"],    
+    "license": "MIT",
+    "homepage": "https://github.com/s-mcdonald/bag",        
+    "authors": [
+        {
+            "name": "Sam McDonald",
+            "email": "s.mcdonald@outlook.com.au"
+        }
+    ],
+    "version": "1.0.0",    
+    "require": {
+        "php": ">=7.0.0"
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "SamMcDonald\\Bag\\BagServiceProvider"
+            ],
+            "aliases": {
+                "Bag": "SamMcDonald\\Bag\\Facades\\Bag"
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "SamMcDonald\\Bag\\": "src/"
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
