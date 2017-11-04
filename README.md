@@ -24,7 +24,7 @@ And optionally the `aliases`:
 
 ## Usage
 
-The shoppingcart gives you the following methods to use:
+The Bag gives you the following methods to use:
 
 ### Bag::add()
 
