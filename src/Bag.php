@@ -35,20 +35,20 @@ class Bag
 
 
     /**
-     * The Current Bag
+     * The Current or Selected Bag
      * 
      * @var [type]
      */
-    private $trolley;
+    private $bag;
 
 
 
     /**
-     * Content store for our Bag items
+     * Bags Container
      * 
      * @var [type]
      */
-    private $content;
+    private $bags;
 
 
 
@@ -144,11 +144,11 @@ class Bag
      */
     public function __construct(SessionManager $session, Dispatcher $events)
     {
-        $this->trolley = self::DEFAULT_CART_FQN;
         $this->events   = $events;
         $this->session  = $session;
-        $this->content  = null;       
-        $this->bag_list = $this->fetch_trollies();
+        $this->bag      = self::DEFAULT_CART_FQN;
+        $this->bags     = null;       
+        $this->bag_list = $this->fetch_bags();
         $this->multiple_bags = config('bag.multi-bags') ?: false;
         $this->initialiseBag();
     }
@@ -181,23 +181,23 @@ class Bag
      * @param  [type] $name [description]
      * @return [type]       [description]
      */
-    public function select(string $name = null)
+    public function select(string $bag = null)
     {
         if( 
-            ($name == null) ||
+            ($bag == null) ||
             (!$this->multiple_bags) ||
-            ($name == self::DEFAULT_CART_NAME)) {
-            $this->trolley = self::DEFAULT_CART_FQN;
+            ($bag == self::DEFAULT_CART_NAME)) {
+            $this->bag = self::DEFAULT_CART_FQN;
         }
         else
-            $this->trolley = self::BAG_PREFIX.$name;
+            $this->bag = self::BAG_PREFIX.$bag;
 
-        if(!isset($this->content[$this->trolley])) {
-            $this->content[$this->trolley] = null;
+        if(!isset($this->bags[$this->bag])) {
+            $this->bags[$this->bag] = null;
         }
 
-        if(!$this->bag_list->has($this->trolley)) {
-            $this->bag_list->put($this->trolley,$name);
+        if(!$this->bag_list->has($this->bag)) {
+            $this->bag_list->put($this->bag, $bag);
             $this->save();
         }
 
@@ -216,7 +216,7 @@ class Bag
      */
     public function view()
     {
-        return $this->trolley;
+        return $this->bag;
     }
 
     /**
@@ -257,17 +257,17 @@ class Bag
     /**
      * Updates the qty of a specific Item.
      * 
-     * @param  [type] $rowId [description]
+     * @param  [type] $rowid [description]
      * @param  [type] $qty   [description]
      * @return [type]        [description]
      */
-    public function update($rowId, $qty)
+    public function update($rowid, $qty)
     {
-        if($this->hasNone($rowId)) {
+        if($this->hasNone($rowid)) {
             return false;
         }
 
-        $item = $this->get($rowId);
+        $item = $this->get($rowid);
 
         if ($qty <= 0)
             $this->remove($item->getRowId());
@@ -285,13 +285,13 @@ class Bag
     /**
      * Removes an Item from the bag
      * 
-     * @param  string $rowId [description]
+     * @param  string $rowid [description]
      * @return [type]        [description]
      */
-    public function remove(string $rowId = '') : bool
+    public function remove(string $rowid = '') : bool
     {
-        if($item = $this->get($rowId)) {
-            $this->content[$this->trolley]->pull($rowId);           
+        if($item = $this->get($rowid)) {
+            $this->bags[$this->bag]->pull($rowid);           
             $this->saveBag(self::EVT_ITEM_REMOVED, $item);
             return true;
         }
@@ -303,15 +303,15 @@ class Bag
     /**
      * Gets an Item from the Bag
      * 
-     * @param  [type] $rowId [description]
+     * @param  [type] $rowid [description]
      * @return [type]        [description]
      */
-    public function get($rowId)
+    public function get($rowid)
     {
-        if ( ! $this->content[$this->trolley]->has($rowId))
+        if ( ! $this->bags[$this->bag]->has($rowid))
             return false;
 
-        return $this->content[$this->trolley]->get($rowId);
+        return $this->bags[$this->bag]->get($rowid);
     }
 
 
@@ -322,33 +322,33 @@ class Bag
      * @param  [type] $item [description]
      * @return [type]       [description]
      */
-    protected function put($row,$item)
+    protected function put($row, $item)
     {
-        return $this->content[$this->trolley]->put($row, $item);
+        return $this->bags[$this->bag]->put($row, $item);
     }
 
 
     /**
      * Confirms if the Bag contains a specific RowID.
      * 
-     * @param  [type]  $rowId [description]
+     * @param  [type]  $rowid [description]
      * @return boolean        [description]
      */
-    public function has($rowId)
+    public function has($rowid)
     {
-        return $this->content[$this->trolley]->has($rowId);
+        return $this->bags[$this->bag]->has($rowid);
     }
 
 
     /**
      * Confirms if the Bag doesnt contain a specific row.
      * 
-     * @param  [type]  $rowId [description]
+     * @param  [type]  $rowid [description]
      * @return boolean        [description]
      */
-    public function hasNone($rowId)
+    public function hasNone($rowid)
     {
-        return !($this->has($rowId));
+        return !($this->has($rowid));
     }
 
 
@@ -359,9 +359,9 @@ class Bag
      */
     public function clear()
     {
-        $this->session->remove($this->trolley);
+        $this->session->remove($this->bag);
 
-        $this->content[$this->trolley] = new Collection;
+        $this->bags[$this->bag] = new Collection;
 
         $this->saveBag(self::EVT_CART_CLEARED);
 
@@ -390,16 +390,16 @@ class Bag
      */
     public function content()
     {
-        if($this->content[$this->trolley] === null)
+        if($this->bags[$this->bag] === null)
         {
-            $this->content[$this->trolley] = $this->session->has($this->trolley)
-                ? $this->session->get($this->trolley)
+            $this->bags[$this->bag] = $this->session->has($this->bag)
+                ? $this->session->get($this->bag)
                 : new Collection;
 
             $this->saveBag(self::EVT_CART_INIT);
         }
 
-        return $this->content[$this->trolley];
+        return $this->bags[$this->bag];
     }
 
     /**
@@ -412,7 +412,7 @@ class Bag
      */
     public function count()
     {
-        $content = $this->content();
+        $content = $this->bags();
 
         return $content->sum('qty');
     }
@@ -425,7 +425,7 @@ class Bag
      */
     public function rows()
     {
-        $content = $this->content();
+        $content = $this->bags();
 
         return $content->count();
     }
@@ -438,9 +438,9 @@ class Bag
      * 
      * @return  Numeric
      */
-    public function subtotal($rowId)
+    public function subtotal($rowid)
     {
-        if($row = $this->get($rowId))
+        if($row = $this->get($rowid))
         {
             return $row->getTotal();
         }
@@ -458,7 +458,7 @@ class Bag
      */
     public function total()
     {
-        $content = $this->content();
+        $content = $this->bags();
 
         $total = $content->reduce(function ($total, BagItem $item) {
             return $total + ($item->getTotal());
@@ -477,7 +477,7 @@ class Bag
      */
     public function filter(Closure $search)
     {
-        return $this->content()->filter($search);
+        return $this->bags()->filter($search);
     }
 
     /**
@@ -490,7 +490,7 @@ class Bag
      */
     public function each(Closure $func)
     {
-        return $this->content()->each($func);
+        return $this->bags()->each($func);
     }
 
 
@@ -523,10 +523,10 @@ class Bag
      */
     private function initialiseBag()
     {
-        if(!isset($this->content[$this->trolley]))
+        if(!isset($this->bags[$this->bag]))
         {
-            $this->content[$this->trolley] = $this->session->has($this->trolley)
-                ? $this->session->get($this->trolley)
+            $this->bags[$this->bag] = $this->session->has($this->bag)
+                ? $this->session->get($this->bag)
                 : new Collection;
         }
     }
@@ -543,7 +543,7 @@ class Bag
      */
     private function saveBag(string $event_name, $payload = null)
     {
-        $this->session->put($this->trolley, $this->content[$this->trolley]);
+        $this->session->put($this->bag, $this->bags[$this->bag]);
 
         $this->session->put(self::BAG_LIST_KEY, $this->bag_list);
 
@@ -561,14 +561,14 @@ class Bag
      * 
      * @return Collection Laravel Collection
      */
-    private function fetch_trollies()
+    private function fetch_bags()
     {
         if($this->session->has(self::BAG_LIST_KEY)) {
             return $this->session->get(self::BAG_LIST_KEY);
         }
 
         $this->bag_list = new Collection();
-        $this->bag_list->put($this->trolley, self::DEFAULT_CART_NAME);
+        $this->bag_list->put($this->bag, self::DEFAULT_CART_NAME);
         $this->save();
 
         return $this->bag_list;
