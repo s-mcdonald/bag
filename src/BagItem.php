@@ -19,7 +19,7 @@ class BagItem implements Arrayable, Jsonable
      *
      * @var string
      */
-    protected $rowId;
+    protected $rowid;
 
 
     /**
@@ -97,7 +97,7 @@ class BagItem implements Arrayable, Jsonable
         $this->code     = $code;
         $this->name     = $name;
         $this->price    = BagItemUtil::Currency($price);
-        $this->rowId    = BagItemUtil::RowID($code, $attributes);
+        $this->$rowid    = BagItemUtil::RowID($code, $attributes);
         $this->attributes  = new BagItemAttributes($attributes);        
     }
 
@@ -157,7 +157,7 @@ class BagItem implements Arrayable, Jsonable
      */
     public function getRowId()
     {
-        return $this->rowId;
+        return $this->$rowid;
     }
 
     /**
@@ -223,7 +223,7 @@ class BagItem implements Arrayable, Jsonable
     public function toArray()
     {
         return [
-            'rowid'    => $this->rowId,
+            'rowid'    => $this->$rowid,
             'code'     => $this->code,
             'name'     => $this->name,
             'qty'      => $this->qty,

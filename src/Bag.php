@@ -5,7 +5,6 @@ namespace SamMcDonald\Bag;
 use Closure;
 use Illuminate\Support\Collection;
 use Illuminate\Session\SessionManager;
-use Illuminate\Database\DatabaseManager;
 use Illuminate\Contracts\Events\Dispatcher;
 
 use SamMcDonald\Bag\Contracts\Sellable;
@@ -16,10 +15,29 @@ class Bag
 {
 
 
+
+    /**
+     * The Current or Selected Bag
+     * 
+     * @var Collection
+     */
+    private $bag;
+
+
+
+    /**
+     * Array of Collection (Bag Content)
+     * 
+     * @var array
+     */
+    private $bags;
+
+
+
     /**
      * Session manager
      * 
-     * @var [type]
+     * @var SessionManager
      */
     private $session;
 
@@ -28,27 +46,11 @@ class Bag
     /**
      * Event Dispatcher
      * 
-     * @var [type]
+     * @var Dispatcher
      */
     private $events;
 
 
-
-    /**
-     * The Current or Selected Bag
-     * 
-     * @var [type]
-     */
-    private $bag;
-
-
-
-    /**
-     * Bags Container
-     * 
-     * @var [type]
-     */
-    private $bags;
 
 
 
@@ -93,6 +95,23 @@ class Bag
     private const EVT_ITEM_UPDATED  = 'Bag.Item.Updated';
 
 
+
+
+    /**
+     * Session name for Bag Index
+     */
+    private const BAG_LIST_KEY      = 'Bags:Bag';
+
+
+
+    /**
+     * Bag prefix for custom Bags
+     */
+    private const BAG_PREFIX        = 'Bags:Bag:';
+
+
+
+
     /**
      * The Default Bag Name
      */
@@ -106,18 +125,12 @@ class Bag
     private const DEFAULT_CART_FQN  = 'Bags:Bag:default';
 
 
-
-    /**
-     * Bag prefix for custom Bags
-     */
-    private const BAG_PREFIX        = 'Bags:Bag:';
+    private const CURRENT_BAG       = 'Bags:Current';
 
 
 
-    /**
-     * Session name for Bag Index
-     */
-    private const BAG_LIST_KEY   = 'Bags:Bag';
+
+
 
 
     /**
@@ -144,20 +157,46 @@ class Bag
      */
     public function __construct(SessionManager $session, Dispatcher $events)
     {
-        $this->events   = $events;
-        $this->session  = $session;
-        $this->bag      = self::DEFAULT_CART_FQN;
-        $this->bags     = null;       
-        $this->bag_list = $this->fetch_bags();
-        $this->multiple_bags = config('bag.multi-bags') ?: false;
-        $this->initialiseBag();
+        $this->events           = $events;
+        $this->session          = $session;
+
+        $this->initialize();
+
+        $this->loadBag();
+    }
+
+    /**
+     * Initialize the Bag.
+     * 
+     * Load active bag or use default
+     * 
+     * @return [type] [description]
+     */
+    private function initialize()
+    {
+        $this->bags = [];  
+        $this->bag  = $this->session->has(self::CURRENT_BAG)
+                            ? $this->session->get(self::CURRENT_BAG)
+                            : self::DEFAULT_CART_FQN;
+
+        if($this->session->has(self::BAG_LIST_KEY)) {
+            $this->bag_list = $this->session->get(self::BAG_LIST_KEY);
+        }
+        else {
+            $this->bag_list = new Collection();
+            $this->bag_list->put($this->bag, self::DEFAULT_CART_NAME);
+        }
+
+        $this->multiple_bags    = config('bag.multi-bags') ?: false;
     }
 
 
+
+
     /**
-     * Gets all Bags.
+     * Gets a listing of Bags.
      * 
-     * @return [type] [description]
+     * @return Collection
      */
     public function all()
     {
@@ -166,9 +205,20 @@ class Bag
 
 
     /**
+     * Returns the current Bag
+     * 
+     * @return string [description]
+     */
+    public function getActiveBag()
+    {
+        return $this->bag;
+    }
+
+
+    /**
      * Switch to the Default Bag.
      * 
-     * @return [type] [description]
+     * @return self
      */
     public function default()
     {
@@ -178,8 +228,8 @@ class Bag
     /**
      * Select a specific Bag.
      * 
-     * @param  [type] $name [description]
-     * @return [type]       [description]
+     * @param  string $name Desired bag
+     * @return self
      */
     public function select(string $bag = null)
     {
@@ -202,22 +252,14 @@ class Bag
         }
 
         // bag is now selected, lets initialize it
-        $this->initialiseBag();
+        $this->loadBag();
 
         return $this;
     }
 
 
 
-    /**
-     * Returns current trolly.
-     * 
-     * @return string
-     */
-    public function view()
-    {
-        return $this->bag;
-    }
+
 
     /**
      * Adds an Item to the Bag.
@@ -233,12 +275,11 @@ class Bag
      * add(array, null, attributes)
      * add(code, name, price)
      * add(code, name, qty, price, attributes)
-
      * 
-     * @param [type] $param      [description]
-     * @param [type] $param2     [description]
-     * @param [type] $param3     [description]
-     * @param [type] $param4     [description]
+     * @param mixed $param      [description]
+     * @param mixed $param2     [description]
+     * @param mixed $param3     [description]
+     * @param mixed $param4     [description]
      * @param array  $attributes [description]
      */
     public function add($param, $param2 = null, $param3 = null, $param4 = null, array $attributes = [])
@@ -257,9 +298,9 @@ class Bag
     /**
      * Updates the qty of a specific Item.
      * 
-     * @param  [type] $rowid [description]
-     * @param  [type] $qty   [description]
-     * @return [type]        [description]
+     * @param  string $rowid [description]
+     * @param  number $qty   [description]
+     * @return BagItem
      */
     public function update($rowid, $qty)
     {
@@ -286,7 +327,7 @@ class Bag
      * Removes an Item from the bag
      * 
      * @param  string $rowid [description]
-     * @return [type]        [description]
+     * @return bool        [description]
      */
     public function remove(string $rowid = '') : bool
     {
@@ -412,7 +453,7 @@ class Bag
      */
     public function count()
     {
-        $content = $this->bags();
+        $content = $this->content();
 
         return $content->sum('qty');
     }
@@ -425,7 +466,7 @@ class Bag
      */
     public function rows()
     {
-        $content = $this->bags();
+        $content = $this->content();
 
         return $content->count();
     }
@@ -458,7 +499,7 @@ class Bag
      */
     public function total()
     {
-        $content = $this->bags();
+        $content = $this->content();
 
         $total = $content->reduce(function ($total, BagItem $item) {
             return $total + ($item->getTotal());
@@ -477,7 +518,7 @@ class Bag
      */
     public function filter(Closure $search)
     {
-        return $this->bags()->filter($search);
+        return $this->content()->filter($search);
     }
 
     /**
@@ -490,7 +531,7 @@ class Bag
      */
     public function each(Closure $func)
     {
-        return $this->bags()->each($func);
+        return $this->content()->each($func);
     }
 
 
@@ -521,8 +562,10 @@ class Bag
      * 
      * @return [type] [description]
      */
-    private function initialiseBag()
+    private function loadBag()
     {
+        $this->session->put(self::CURRENT_BAG, $this->bag);
+
         if(!isset($this->bags[$this->bag]))
         {
             $this->bags[$this->bag] = $this->session->has($this->bag)
@@ -543,6 +586,8 @@ class Bag
      */
     private function saveBag(string $event_name, $payload = null)
     {
+        $this->session->put(self::CURRENT_BAG, $this->bag);
+
         $this->session->put($this->bag, $this->bags[$this->bag]);
 
         $this->session->put(self::BAG_LIST_KEY, $this->bag_list);
@@ -552,25 +597,4 @@ class Bag
         $this->events->fire($event_name, $payload);
     }
 
-    /**
-     * Fetch the list of Bags we have stored
-     *
-     * This gets the index of bags, a collection of Bag 
-     * names and not the Bags themselves.
-     *
-     * 
-     * @return Collection Laravel Collection
-     */
-    private function fetch_bags()
-    {
-        if($this->session->has(self::BAG_LIST_KEY)) {
-            return $this->session->get(self::BAG_LIST_KEY);
-        }
-
-        $this->bag_list = new Collection();
-        $this->bag_list->put($this->bag, self::DEFAULT_CART_NAME);
-        $this->save();
-
-        return $this->bag_list;
-    }
 }
