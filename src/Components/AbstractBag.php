@@ -319,11 +319,9 @@ abstract class AbstractBag
      * add(Sellable, qty, attributes)
      * add(Sellable, null, attributes)
      * add(array)
-     * add(array, qty)
-     * add(array, qty, attributes)
-     * add(array, null, attributes)
+     * add(array, attributes)
      * add(code, name, price)
-     * add(code, name, qty, price, attributes)
+     * add(code, name, price, qty, attributes)
      * 
      * @param mixed $param      [description]
      * @param mixed $param2     [description]

@@ -8,9 +8,8 @@ It utilizes a simple and common api that allows for the use of multiple carts/li
 ```php
 
 // Add items to Bag
-$item1 = Bag::add('a1', 'Poster', 1, 5.00);
-$item2 = Bag::add('a3', 'Shoes', 1, 25.00, ['size' => 'XL']);
-
+$item1 = Bag::add('a1', 'Shoes',  1, 25.00);
+$item2 = Bag::add('a2', 'Poster', 1,  5.00, ['size' => 'XL']);
 
 // Update Item in Bag
 Bag::update($item1->getRowId(), 6);
@@ -40,16 +39,34 @@ Run the Composer require command from the Terminal:
     
 I will be adding AutoDiscovery code soon but for now just add the usual
 
-	SamMcDonald\Bag\BagServiceProvider::class
+    SamMcDonald\Bag\BagServiceProvider::class
 
 And optionally the `aliases`:
 
-	'Bag' => SamMcDonald\Bag\Facades\Bag::class,
+    'Bag' => SamMcDonald\Bag\Facades\Bag::class,
 
 
 ## Documentation
 
 Below is a comprehensive list of commands exposed by LaravelBag.
+
+#### RowID
+
+Its important to note that once an Item is added to the Bag, the Bag generates a RowID for the item added.
+You need the rowid to perform various operations, so if you need to get the rowid you can get it by either the returned value of `add()` or by iterating over `content()`.
+
+```php
+
+$row = Bag::add('xyz', 'Poster', 5.00);
+$row->getRowId();
+
+
+foreach(Bag::content() as $item)
+{
+    $item->getRowId()
+}
+
+```
 
 
 ### Selecting a Bag
@@ -70,25 +87,6 @@ Bag::select('wishlist');
 Bag::select('list-name');
 
 ```
-
-#### RowID
-
-Its important to note that once an Item is added to the Bag, the Bag generates a RowID.
-You need the rowid for various functions so if you need to get the rowid use one of the following
-
-```php
-
-$row = Bag::add('xyz', 'Poster', 5.00);
-$row->getRowId();
-
-
-foreach(Bag::content() as $item)
-{
-    $item->getRowId()
-}
-
-```
-
 
 
 
