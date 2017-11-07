@@ -96,9 +96,11 @@ class BagItem implements Arrayable, Jsonable
 
         $this->code     = $code;
         $this->name     = $name;
-        $this->price    = BagItemUtil::Currency($price);
-        $this->$rowid    = BagItemUtil::RowID($code, $attributes);
-        $this->attributes  = new BagItemAttributes($attributes);        
+        $this->rowid    = BagItemUtil::RowID($code, $attributes);
+        $this->attributes  = new BagItemAttributes($attributes);
+
+        $this->setPrice($price);
+        $this->setQty(1);
     }
 
     /**
@@ -108,19 +110,17 @@ class BagItem implements Arrayable, Jsonable
      * make(Sellable, qty, attributes)
      * make(Sellable, null, attributes)
      * make(array)
-     * make(array, qty)
-     * make(array, qty, attributes)
-     * make(array, null, attributes)
+     * make(array, attributes)
      * make(code, name, price)
-     * make(code, name, qty, price, attributes)
+     * make(code, name, price, qty, attributes)
      *
      * 
-     * @param  [type] $param   [description]
-     * @param  [type] $param2  [description]
-     * @param  [type] $param3     [description]
-     * @param  [type] $price   [description]
-     * @param  array  $attributes [description]
-     * @return [type]          [description]
+     * @param  [type] $param        [description]
+     * @param  [type] $param2       [description]
+     * @param  [type] $param3       [description]
+     * @param  [type] $price        [description]
+     * @param  array  $attributes   [description]
+     * @return [type]               [description]
      */
     public static function make($param, $param2 = null, $param3 = null, $param4 = null, array $attributes = [])
     {
@@ -135,17 +135,46 @@ class BagItem implements Arrayable, Jsonable
         } 
         elseif (is_array($param)) 
         {
-            $attributes = array_get($param, 'attributes', false );
-            $item = new static(($param['code'] ?: $param['id']), $param['name'] ?: $param['description'], $param['price'], $attributes ?: $param3 ?: []);
-            $item->setQty($param['qty'] ?: $param2 ?: self::MIN_QTY);
+            $array = static::preparray($param);
+            $attributes = (is_array($param2)) ? $param2 : [];
+            $item = static::makeByArray($array, $attributes);
         } 
         else 
         {
-            $item = new static($param, $param2, $param4, $attributes); 
-            $item->setQty($param3 ?: self::MIN_QTY);
+            $item = new static($param, $param2, $param3, $attributes ); 
+            $item->setQty($param4 ?: self::MIN_QTY);
         }
 
         return $item;
+    }
+
+    private static function makeByArray(array $array, array $attributes = [])
+    {
+        $attributes = array_get($array, 'attributes', $attributes );
+        $item = new static(($array['code'] ?: $array['id']), $array['name'] ?: $array['description'], $array['price'], $attributes);
+        $item->setQty($array['qty'] ?: $array['quantity'] ?: self::MIN_QTY);
+        return $item;
+    }
+
+    /**
+     * Prepares the array
+     * 
+     * @param  array  $array [description]
+     * @return [type]        [description]
+     */
+    private static function preparray(array $array)
+    {
+        if(!isset($array['id'])) $array['id'] = false;
+        if(!isset($array['code'])) $array['code'] = false;
+        if(!isset($array['name'])) $array['name'] = false;
+        if(!isset($array['qty'])) $array['qty'] = false;
+        if(!isset($array['quantity'])) $array['quantity'] = false;
+
+        
+
+        //if using the options shorthand switch it up for attributes
+        if(isset($array['options'])) $array['attributes'] = $array['options'];
+        return $array;
     }
 
 
@@ -157,8 +186,9 @@ class BagItem implements Arrayable, Jsonable
      */
     public function getRowId()
     {
-        return $this->$rowid;
+        return $this->rowid;
     }
+
 
     /**
      * Get the product code
@@ -169,6 +199,19 @@ class BagItem implements Arrayable, Jsonable
     {
         return $this->code;
     }
+
+
+
+    /**
+     * Get the product name/title
+     * 
+     * @return [type] [description]
+     */
+    public function getName()
+    {
+        return $this->name;
+    }
+
 
     /**
      * Get the Qty
@@ -215,6 +258,20 @@ class BagItem implements Arrayable, Jsonable
     }
 
 
+    public function setPrice($price)
+    {
+        if(empty($price) || ! is_numeric($price))
+            throw new BagException('Invalid price.');
+
+        return $this->price = BagItemUtil::Currency($price);
+    }
+
+
+    public function __toString()
+    {
+        return $this->toJson();
+    }
+
     /**
      * toArray()
      * 
@@ -223,13 +280,13 @@ class BagItem implements Arrayable, Jsonable
     public function toArray()
     {
         return [
-            'rowid'    => $this->$rowid,
+            'rowid'    => $this->rowid,
             'code'     => $this->code,
             'name'     => $this->name,
             'qty'      => $this->qty,
             'price'    => $this->price,
             'attributes'  => $this->attributes->toArray(),
-            'subtotal' => $this->subtotal
+            'subtotal' => $this->getTotal()
         ];
     }
 
